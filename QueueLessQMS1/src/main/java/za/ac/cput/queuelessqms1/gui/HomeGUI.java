@@ -74,7 +74,7 @@ public class HomeGUI extends JFrame {
 
         sloganLbl = new JLabel(letterSpace("Queue Less. Care More."));
         sloganLbl.setFont(new Font("Inter", Font.PLAIN, 15));
-        sloganLbl.setForeground(GREEN_ACCENT);
+        sloganLbl.setForeground(Color.BLACK);
         sloganLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         innerColumn.add(bigLogo);

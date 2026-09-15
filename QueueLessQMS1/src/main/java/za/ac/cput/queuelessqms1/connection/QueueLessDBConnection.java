@@ -10,9 +10,9 @@ public class QueueLessDBConnection {
 
     public static Connection sqlConnection() throws SQLException {
 
-        String dbUrl = "";
-        String username = "";
-        String password = "";
+        String dbUrl = "jdbc:derby://localhost:1527/QueueLess";
+        String username = "QueueLess";
+        String password = "12345678";
         Connection con = DriverManager.getConnection(dbUrl, username, password);
         return con;
     }
