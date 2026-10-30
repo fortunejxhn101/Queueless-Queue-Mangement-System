@@ -23,6 +23,7 @@ public class GenerateTicketPanel extends JPanel {
     private final Color lightGrey = new Color(225, 225, 225);
     private final Color mutedGray = new Color(140, 145, 155);
     private final Color borderGrey = new Color(220, 222, 226);
+    private final Color redAccent = new Color(196, 74, 74);
 
     public GenerateTicketPanel() {
         setBackground(white);
@@ -71,12 +72,10 @@ public class GenerateTicketPanel extends JPanel {
     private void generateTicket() {
         
         if (!CurrentPatient.hasPatient()) {
-            JOptionPane.showMessageDialog(this,
+            showStyledMessageDialog("No Patient Selected",
                     "No patient is currently ready for a ticket. Please visit the Patient "
                     + "Registration screen first: register a new patient, or find and update "
-                    + "an existing one, then return here to generate their ticket.",
-                    "No Patient Selected",
-                    JOptionPane.INFORMATION_MESSAGE);
+                    + "an existing one, then return here to generate their ticket.", greenAccent);
             return;
         }
 
@@ -84,11 +83,9 @@ public class GenerateTicketPanel extends JPanel {
         String departmentCode = departmentName;
 
         if (departmentCode == null) {
-            JOptionPane.showMessageDialog(this,
-                    "The selected department (\"" + departmentName + "\") could not be matched "
-                    + "to a department record in the database. Please contact an administrator.",
-                    "Department Not Found",
-                    JOptionPane.ERROR_MESSAGE);
+            showStyledMessageDialog("Department Not Found",
+                    "No department is set for this patient. Please go back to Patient Registration, "
+                    + "select a department, and try again.", redAccent);
             return;
         }
 
@@ -98,17 +95,83 @@ public class GenerateTicketPanel extends JPanel {
                 CurrentPatient.getIdentificationNumber());
 
         if (newTicket == null) {
-            JOptionPane.showMessageDialog(this,
+            showStyledMessageDialog("Ticket Not Generated",
                     "The ticket could not be saved to the database. Please try again, "
-                    + "or contact support if the problem continues.",
-                    "Ticket Not Generated",
-                    JOptionPane.ERROR_MESSAGE);
+                    + "or contact support if the problem continues.", redAccent);
             return;
         }
 
         showTicketGeneratedDialog(newTicket.getTicketNumber());
 
         CurrentPatient.clear();
+    }
+
+    private void showStyledMessageDialog(String title, String message, Color stripColor) {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(owner);
+        dialog.setModal(true);
+        dialog.setUndecorated(true);
+        dialog.setBackground(new Color(0, 0, 0, 0));
+
+        JPanel panel = new JPanel(new BorderLayout(16, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(white);
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.setColor(new Color(200, 200, 200));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(22, 4, 20, 24));
+
+        JPanel accentStrip = new JPanel();
+        accentStrip.setBackground(stripColor);
+        accentStrip.setPreferredSize(new Dimension(4, 0));
+
+        JLabel titleLbl = new JLabel(title);
+        titleLbl.setFont(new Font("Inter", Font.BOLD, 16));
+        titleLbl.setForeground(darkBlue);
+
+        String safeMessage = message.replace("&", "&amp;").replace("<", "&lt;");
+        JLabel messageLbl = new JLabel("<html><body style='width: 300px'>" + safeMessage + "</body></html>");
+        messageLbl.setFont(new Font("Inter", Font.PLAIN, 14));
+        messageLbl.setForeground(Color.DARK_GRAY);
+        messageLbl.setBorder(BorderFactory.createEmptyBorder(8, 0, 16, 0));
+
+        RoundedButton okBtn = new RoundedButton("OK");
+        okBtn.setFont(new Font("Inter", Font.BOLD, 13));
+        okBtn.setBackground(darkBlue);
+        okBtn.setForeground(Color.WHITE);
+        okBtn.setPreferredSize(new Dimension(80, 40));
+        okBtn.addActionListener(e -> dialog.dispose());
+
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        btnRow.setOpaque(false);
+        btnRow.add(okBtn);
+
+        JPanel textColumn = new JPanel();
+        textColumn.setOpaque(false);
+        textColumn.setLayout(new BoxLayout(textColumn, BoxLayout.Y_AXIS));
+        titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        messageLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        textColumn.add(titleLbl);
+        textColumn.add(messageLbl);
+        textColumn.add(btnRow);
+
+        panel.add(accentStrip, BorderLayout.WEST);
+        panel.add(textColumn, BorderLayout.CENTER);
+
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private void showTicketGeneratedDialog(String ticketNumber) {
@@ -237,19 +300,35 @@ public class GenerateTicketPanel extends JPanel {
     private static class RoundedButton extends JButton {
 
         private final int cornerRadius = 20;
+        private boolean hovered = false;
 
         RoundedButton(String text) {
             super(text);
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    hovered = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    hovered = false;
+                    repaint();
+                }
+            });
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(getBackground());
+            g2.setColor(hovered ? getBackground().darker() : getBackground());
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), cornerRadius, cornerRadius);
             g2.dispose();
             super.paintComponent(g);

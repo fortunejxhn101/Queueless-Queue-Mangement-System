@@ -5,6 +5,7 @@ import javax.swing.border.Border;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
+import java.sql.SQLException;
 import za.ac.cput.queuelessqms1.domain.*;
 import za.ac.cput.queuelessqms1.dao.*;
 
@@ -49,6 +50,8 @@ public class StaffLoginGUI extends JFrame {
     private JPasswordField signUpConfirmPasswordTxt;
 
     private FadeLayer fadeLayer;
+
+    private final StaffDAO staffDao = new StaffDAO();
 
     public StaffLoginGUI() {
         super("QueueLess: Staff Login");
@@ -204,6 +207,7 @@ public class StaffLoginGUI extends JFrame {
         loginUsernameTxt = new JTextField();
         loginPasswordTxt = new JPasswordField();
         
+        loginUsernameTxt.addActionListener(this::handleLogin);
         loginPasswordTxt.addActionListener(this::handleLogin);
 
         form.add(fieldBlock("Username", loginUsernameTxt));
@@ -361,8 +365,8 @@ public class StaffLoginGUI extends JFrame {
         if (value.isEmpty()) {
             return "Username is required";
         }
-        if (!value.matches("[a-zA-Z][a-zA-Z0-9_]{2,29}")) {
-            return "Username must be 3-30 characters, start with a letter, "
+        if (!value.matches("[a-zA-Z][a-zA-Z0-9_]{2,19}")) {
+            return "Username must be 3-20 characters, start with a letter, "
                     + "and contain only letters, numbers, and underscores";
         }
         return null;
@@ -374,6 +378,9 @@ public class StaffLoginGUI extends JFrame {
         }
         if (value.length() < 6) {
             return "Password must be at least 6 characters long";
+        }
+        if (value.length() > 20) {
+            return "Password must be 20 characters or less";
         }
         if (!value.matches(".*[a-zA-Z].*") || !value.matches(".*\\d.*")) {
             return "Password must contain at least one letter and one number";
@@ -396,7 +403,23 @@ public class StaffLoginGUI extends JFrame {
             return;
         }
 
-        Staff matchedStaff = new Staff("Staff", "Member", username, password);
+        Staff matchedStaff;
+        try {
+            matchedStaff = staffDao.findByUsername(username);
+        } catch (SQLException ex) {
+            showStyledMessageDialog("Login Unavailable",
+                    "We could not reach the database right now. Please try again in a moment.");
+            return;
+        }
+
+        if (matchedStaff == null || !matchedStaff.getPassword().equals(password)) {
+            loginPasswordTxt.setText("");
+            showStyledMessageDialog("Login Failed", "Incorrect username or password. Please try again.");
+            loginPasswordTxt.requestFocusInWindow();
+            return;
+        }
+
+        loginPasswordTxt.setText("");
         CurrentSession.setLoggedInStaff(matchedStaff);
         goToDashboard();
     }
@@ -443,10 +466,41 @@ public class StaffLoginGUI extends JFrame {
             return;
         }
 
+        try {
+            if (staffDao.isUsernameTaken(username)) {
+                showStyledMessageDialog("Username Taken",
+                        "That username is already in use. Please choose a different one.");
+                return;
+            }
+        } catch (SQLException ex) {
+            showStyledMessageDialog("Sign Up Unavailable",
+                    "We could not reach the database right now. Please try again in a moment.");
+            return;
+        }
+
         Staff staffMember = new Staff(firstName, lastName, username, password);
 
-        CurrentSession.setLoggedInStaff(staffMember);
-        goToDashboard();
+        if (!staffDao.insertStaffSignUpDetails(staffMember)) {
+            showStyledMessageDialog("Sign Up Failed",
+                    "Something went wrong while creating your account. Please try again.");
+            return;
+        }
+
+        showStyledMessageDialog("Account Created",
+                "Your account has been created. Please log in with your new username and password.");
+        clearSignUpForm();
+        loginUsernameTxt.setText(username);
+        loginPasswordTxt.setText("");
+        switchTo("LOGIN");
+        loginPasswordTxt.requestFocusInWindow();
+    }
+
+    private void clearSignUpForm() {
+        signUpFirstNameTxt.setText("");
+        signUpLastNameTxt.setText("");
+        signUpUsernameTxt.setText("");
+        signUpPasswordTxt.setText("");
+        signUpConfirmPasswordTxt.setText("");
     }
 
     private void goToDashboard() {
@@ -715,15 +769,5 @@ public class StaffLoginGUI extends JFrame {
         public int getIconHeight() {
             return size;
         }
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {
-            }
-            new StaffLoginGUI().setVisible(true);
-        });
     }
 }

@@ -2,6 +2,10 @@ package za.ac.cput.queuelessqms1.gui;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -28,10 +32,10 @@ public class DashboardGUI extends JFrame {
     private static final Color CARD_BORDER_HOVER_COLOR = GREEN_ACCENT;
     private static final Color CARD_DESCRIPTION_COLOR = new Color(120, 128, 140);
 
-    private static final int CARD_WIDTH = 400;
+    private static final int CARD_WIDTH = 370; // was 400 - narrowed slightly so three cards fit side by side
     private static final int CARD_HEIGHT = 360;
     private static final int CARD_CORNER_RADIUS = 16;
-    private static final int CARD_GAP = 40;
+    private static final int CARD_GAP = 32; // was 40
 
     private JPanel contentPanel;
     private JLabel eyebrowLbl;
@@ -39,9 +43,11 @@ public class DashboardGUI extends JFrame {
 
     private FeatureCard queueOperationsCard;
     private FeatureCard visitRecordsCard;
+    private FeatureCard departmentsCard;
 
     private Runnable onQueueOperationsClicked;
     private Runnable onVisitRecordsClicked;
+    private Runnable onDepartmentsClicked;
 
     public DashboardGUI() {
         super("QueueLess: Dashboard");
@@ -62,6 +68,7 @@ public class DashboardGUI extends JFrame {
 
         buildContent();
 
+        add(new AccountBar(), BorderLayout.NORTH);
         add(contentPanel, BorderLayout.CENTER);
     }
 
@@ -74,6 +81,10 @@ public class DashboardGUI extends JFrame {
 
         dashboard.setOnVisitRecordsClicked(() -> {
             ScreenTransition.navigateTo(dashboard, VisitRecordsFrame::new);
+        });
+
+        dashboard.setOnDepartmentsClicked(() -> {
+            ScreenTransition.navigateTo(dashboard, DepartmentUI::new);
         });
 
         return dashboard;
@@ -125,9 +136,23 @@ public class DashboardGUI extends JFrame {
                     }
                 });
 
+        departmentsCard = new FeatureCard(
+                "Departments",
+                "Add, search, update and remove the hospital departments "
+                + "that patients can be registered under.",
+                "Department Management",
+                new DepartmentsIcon(),
+                clicked -> {
+                    if (onDepartmentsClicked != null) {
+                        onDepartmentsClicked.run();
+                    }
+                });
+
         cardsRow.add(queueOperationsCard);
         cardsRow.add(Box.createRigidArea(new Dimension(CARD_GAP, 0)));
         cardsRow.add(visitRecordsCard);
+        cardsRow.add(Box.createRigidArea(new Dimension(CARD_GAP, 0)));
+        cardsRow.add(departmentsCard);
 
         innerColumn.add(eyebrowLbl);
         innerColumn.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -156,6 +181,10 @@ public class DashboardGUI extends JFrame {
 
     public void setOnVisitRecordsClicked(Runnable callback) {
         this.onVisitRecordsClicked = callback;
+    }
+
+    public void setOnDepartmentsClicked(Runnable callback) {
+        this.onDepartmentsClicked = callback;
     }
 
     private static class FeatureCard extends JPanel {
@@ -204,7 +233,9 @@ public class DashboardGUI extends JFrame {
             add(Box.createRigidArea(new Dimension(0, 10)));
             add(enterLbl);
 
-            addMouseListener(new MouseAdapter() {
+            setFocusable(true);
+
+            MouseAdapter cardMouseHandler = new MouseAdapter() {
                 @Override
                 public void mouseEntered(MouseEvent e) {
                     hovered = true;
@@ -213,15 +244,56 @@ public class DashboardGUI extends JFrame {
 
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    hovered = false;
+                    Point p = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), FeatureCard.this);
+                    if (!FeatureCard.this.contains(p)) {
+                        hovered = false;
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    if (!SwingUtilities.isLeftMouseButton(e)) {
+                        return;
+                    }
+                    Point p = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), FeatureCard.this);
+                    if (FeatureCard.this.contains(p)) {
+                        onClick.accept(null);
+                    }
+                }
+            };
+            attachMouseHandler(this, cardMouseHandler);
+
+            addFocusListener(new FocusAdapter() {
+                @Override
+                public void focusGained(FocusEvent e) {
                     repaint();
                 }
 
                 @Override
-                public void mouseClicked(MouseEvent e) {
-                    onClick.accept(null);
+                public void focusLost(FocusEvent e) {
+                    repaint();
                 }
             });
+
+            Action activate = new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    onClick.accept(null);
+                }
+            };
+            getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "activateCard");
+            getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "activateCard");
+            getActionMap().put("activateCard", activate);
+        }
+
+        private static void attachMouseHandler(Component comp, MouseAdapter handler) {
+            comp.addMouseListener(handler);
+            if (comp instanceof Container) {
+                for (Component child : ((Container) comp).getComponents()) {
+                    attachMouseHandler(child, handler);
+                }
+            }
         }
 
         @Override
@@ -235,8 +307,9 @@ public class DashboardGUI extends JFrame {
             g2.setColor(Color.WHITE);
             g2.fill(roundRect);
 
-            g2.setColor(hovered ? CARD_BORDER_HOVER_COLOR : CARD_BORDER_COLOR);
-            g2.setStroke(new BasicStroke(hovered ? 2f : 1f));
+            boolean highlighted = hovered || hasFocus();
+            g2.setColor(highlighted ? CARD_BORDER_HOVER_COLOR : CARD_BORDER_COLOR);
+            g2.setStroke(new BasicStroke(highlighted ? 2f : 1f));
             g2.draw(roundRect);
 
             g2.dispose();
@@ -321,6 +394,42 @@ public class DashboardGUI extends JFrame {
                 g2.drawLine(ix + 5, lineY, ix + iw - 5, lineY);
                 lineY += 7;
             }
+
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return SIZE;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return SIZE;
+        }
+    }
+
+    private static class DepartmentsIcon implements Icon {
+
+        private static final int SIZE = 56;
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g2.setColor(new Color(GREEN_ACCENT.getRed(), GREEN_ACCENT.getGreen(), GREEN_ACCENT.getBlue(), 30));
+            g2.fillRoundRect(x, y, SIZE, SIZE, 14, 14);
+
+            g2.setColor(GREEN_ACCENT);
+            g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            int box = 12, gap = 6;
+            int ix = x + (SIZE - (box * 2 + gap)) / 2;
+            int iy = y + (SIZE - (box * 2 + gap)) / 2;
+            g2.drawRoundRect(ix, iy, box, box, 4, 4);
+            g2.drawRoundRect(ix + box + gap, iy, box, box, 4, 4);
+            g2.drawRoundRect(ix, iy + box + gap, box, box, 4, 4);
+            g2.drawRoundRect(ix + box + gap, iy + box + gap, box, box, 4, 4);
 
             g2.dispose();
         }

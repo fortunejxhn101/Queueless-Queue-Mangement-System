@@ -11,6 +11,7 @@ public class HeaderPanel extends JPanel {
 
     private static final Color ACCENT_COLOR = new Color(47, 62, 92);
     private static final Font TITLE_FONT = new Font("Inter", Font.BOLD, 12);
+    private static final int SIDE_PADDING = 24;
 
     private static final int HEADER_HEIGHT = computeNaturalHeight();
 
@@ -19,7 +20,7 @@ public class HeaderPanel extends JPanel {
     }
 
     public HeaderPanel(String titleText) {
-        setLayout(new FlowLayout(FlowLayout.LEFT));
+        setLayout(new FlowLayout(FlowLayout.LEFT, SIDE_PADDING, 5));
         setBackground(ACCENT_COLOR);
 
         Dimension fixedSize = new Dimension(0, HEADER_HEIGHT);
@@ -34,7 +35,7 @@ public class HeaderPanel extends JPanel {
     }
 
     private static int computeNaturalHeight() {
-        JPanel probe = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel probe = new JPanel(new FlowLayout(FlowLayout.LEFT, SIDE_PADDING, 5));
         JLabel probeLbl = new JLabel("QueueLess - Queue Management System");
         probeLbl.setFont(TITLE_FONT);
         probe.add(probeLbl);

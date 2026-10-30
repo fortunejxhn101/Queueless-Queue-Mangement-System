@@ -15,13 +15,9 @@ public class VisitRecordsFrame extends JFrame {
         System.setProperty("swing.aatext", "true");
     }
 
-    private static final Color ACCENT_COLOR = new Color(47, 62, 92);
-
-    private HeaderPanel headerPanel;
-    private SidebarPanel sidebarPanel;
-    private ContentTransition.ContentHost contentHost;
-
-    private VisitScreenPanel visitScreenPanel;
+    private static final int SIDE_MARGIN = 24;
+    private static final int COLUMN_WIDTH = VisitScreenPanel.CONTENT_WIDTH + 2 * SIDE_MARGIN
+            + 2 * VisitScreenPanel.SCROLLBAR_WIDTH;
 
     public VisitRecordsFrame() {
         super("QueueLess: Visit Records");
@@ -40,56 +36,20 @@ public class VisitRecordsFrame extends JFrame {
             }
         });
 
-        headerPanel = new HeaderPanel();
+        JPanel column = new JPanel(new BorderLayout());
+        column.setOpaque(false);
+        column.setPreferredSize(new Dimension(COLUMN_WIDTH, 100));
+        column.add(new VisitScreenPanel(), BorderLayout.CENTER);
 
-        sidebarPanel = new SidebarPanel(this::navigateTo, SidebarPanel.visitRecordsNavItems());
-        contentHost = new ContentTransition.ContentHost();
+        JPanel host = new JPanel(new GridBagLayout());
+        host.setBackground(Color.WHITE);
+        host.setBorder(BorderFactory.createEmptyBorder(16, SIDE_MARGIN, 0, SIDE_MARGIN));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.weighty = 1;
+        gbc.fill = GridBagConstraints.VERTICAL;
+        host.add(column, gbc);
 
-        add(headerPanel, BorderLayout.NORTH);
-        add(sidebarPanel, BorderLayout.WEST);
-        add(contentHost, BorderLayout.CENTER);
-
-        SwingUtilities.invokeLater(() -> navigateTo(SidebarPanel.VISIT_SCREEN));
-    }
-
-    public void navigateTo(String screenKey) {
-        
-        if (SidebarPanel.BACK_TO_DASHBOARD.equals(screenKey)) {
-            ScreenTransition.navigateTo(this, DashboardGUI::createConfigured);
-            return;
-        }
-
-        JComponent content = resolveContent(screenKey);
-        if (content == null) {
-            return;
-        }
-
-        ContentTransition.crossfadeTo(contentHost, content);
-        sidebarPanel.setActiveScreen(screenKey);
-    }
-
-    private JComponent resolveContent(String screenKey) {
-        switch (screenKey) {
-            case SidebarPanel.VISIT_SCREEN:
-                if (visitScreenPanel == null) {
-                    visitScreenPanel = new VisitScreenPanel();
-                }
-                return visitScreenPanel;
-
-            default:
-                return placeholderPanel(screenKey);
-        }
-    }
-
-    private JComponent placeholderPanel(String screenKey) {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
-
-        JLabel label = new JLabel("\"" + screenKey + "\" screen not built yet");
-        label.setFont(new Font("Inter", Font.PLAIN, 16));
-        label.setForeground(new Color(148, 156, 168));
-        panel.add(label);
-
-        return panel;
+        add(AccountBar.backOnly(() -> ScreenTransition.navigateTo(this, DashboardGUI::createConfigured)), BorderLayout.NORTH);
+        add(host, BorderLayout.CENTER);
     }
 }

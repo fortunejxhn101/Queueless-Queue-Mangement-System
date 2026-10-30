@@ -7,6 +7,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import za.ac.cput.queuelessqms1.domain.Ticket;
 import za.ac.cput.queuelessqms1.domain.TicketQueue;
 import za.ac.cput.queuelessqms1.domain.QueueAction;
@@ -14,6 +16,10 @@ import za.ac.cput.queuelessqms1.domain.QueueUpdateListener;
 import za.ac.cput.queuelessqms1.domain.CurrentSession;
 import za.ac.cput.queuelessqms1.domain.Staff;
 import za.ac.cput.queuelessqms1.dao.TicketDAO;
+import za.ac.cput.queuelessqms1.dao.StaffDAO;
+import za.ac.cput.queuelessqms1.dao.QueueActionDAO;
+import za.ac.cput.queuelessqms1.dao.DepartmentDAO;
+import za.ac.cput.queuelessqms1.domain.Department;
 
 /**
  * @author admin
@@ -29,11 +35,17 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     private static final Color MUTED_GRAY = new Color(148, 156, 168);
     private static final Color SUBTITLE_GRAY = new Color(107, 114, 128);
     private static final Color LINK_BLUE = new Color(59, 95, 196);
+    private static final Color DIALOG_BORDER_COLOR = new Color(200, 200, 200);
 
     private JLabel currentTicketLbl;
     private JLabel departmentLbl;
     private JLabel nextTicketValueLbl;
     private JLabel heldCountLbl;
+
+    private final QueueActionDAO queueActionDao = new QueueActionDAO();
+    private final DepartmentDAO departmentDao = new DepartmentDAO();
+    private final Map<String, String> departmentNameCache = new HashMap<>();
+    private int cachedStaffId = -1;
 
     public StaffDashBoardPanel() {
         setLayout(new GridBagLayout());
@@ -82,8 +94,19 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     }
 
     private String resolveDepartmentDisplayName(String departmentCode) {
-        
-        return departmentCode;
+        if (departmentCode == null) {
+            return "";
+        }
+        String cached = departmentNameCache.get(departmentCode);
+        if (cached != null) {
+            return cached;
+        }
+        Department dept = departmentDao.getDepartment(departmentCode);
+        if (dept == null) {
+            return departmentCode;
+        }
+        departmentNameCache.put(departmentCode, dept.getDepartmentName());
+        return dept.getDepartmentName();
     }
 
     private JPanel buildQueueManagementCard() {
@@ -287,22 +310,30 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     }
 
     private void handleClearQueue(ActionEvent e) {
-        int confirmation = JOptionPane.showConfirmDialog(this,
-                "This will clear every currently active ticket from the queue. "
-                + "Tickets are not deleted - they remain in the database, but will "
-                + "no longer appear here or on the Display Screen. Continue?",
-                "Clear Queue",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
+        if (TicketQueue.getNowServing().isEmpty() && TicketQueue.getWaitingTickets().isEmpty()) {
+            showMessage("Queue Already Empty", "There are no active tickets to clear.");
+            return;
+        }
 
-        if (confirmation != JOptionPane.YES_OPTION) {
+        boolean confirmed = showStyledDialog("Clear Queue",
+                "This will clear every currently active ticket from the queue. "
+                + "They will no longer appear here or on the display screen. Continue?",
+                "Clear Queue", RED_ACCENT, true);
+
+        if (!confirmed) {
             return;
         }
 
         ArrayList<Ticket> affectedTickets = TicketQueue.clearActiveQueue();
 
+        boolean allLogged = true;
         for (Ticket t : affectedTickets) {
-            logAction(t, "Clear Queue");
+            if (!logAction(t, "Clear Queue")) {
+                allLogged = false;
+            }
+        }
+        if (!allLogged) {
+            showAuditWarning();
         }
 
         refresh();
@@ -322,29 +353,42 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     private boolean changeStatus(Ticket ticket, String newStatus, String actionType) {
         boolean updated = TicketDAO.updateStatus(ticket.getTicketNumber(), newStatus);
         if (!updated) {
-            showMessage("Update Failed", "Something went wrong while updating the ticket. Please try again.");
+            showError("Update Failed", "Something went wrong while updating the ticket. Please try again.");
             return false;
         }
 
-        logAction(ticket, actionType);
+        if (!logAction(ticket, actionType)) {
+            showAuditWarning();
+        }
         TicketQueue.loadFromDatabase();
         return true;
     }
 
-    private void logAction(Ticket ticket, String actionType) {
+    private boolean logAction(Ticket ticket, String actionType) {
         int staffId = resolveCurrentStaffId();
         if (staffId == -1) {
-            
-            showMessage("Audit Log Not Recorded",
-                    "The queue action succeeded, but could not be logged to Queue_Action "
-                    + "because the current staff member's ID could not be resolved.");
-            return;
+            return false;
         }
+        QueueAction action = new QueueAction(ticket.getTicketId(), staffId, actionType,
+                new Timestamp(System.currentTimeMillis()));
+        return queueActionDao.insertQueueAction(action) != -1;
     }
 
     private int resolveCurrentStaffId() {
-        
-        return -1;
+        if (cachedStaffId != -1) {
+            return cachedStaffId;
+        }
+        Staff staff = CurrentSession.getLoggedInStaff();
+        if (staff == null) {
+            return -1;
+        }
+        cachedStaffId = new StaffDAO().findStaffIdByUsername(staff.getUserName());
+        return cachedStaffId;
+    }
+
+    private void showAuditWarning() {
+        showWarning("Audit Log Not Recorded",
+                "The queue action succeeded, but it could not be saved to the activity log.");
     }
 
     private Ticket findFirstByStatus(ArrayList<Ticket> tickets, String status) {
@@ -388,7 +432,91 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     }
 
     private void showMessage(String title, String message) {
-        JOptionPane.showMessageDialog(this, message, title, JOptionPane.INFORMATION_MESSAGE);
+        showStyledDialog(title, message, "OK", GREEN_ACCENT, false);
+    }
+
+    private void showError(String title, String message) {
+        showStyledDialog(title, message, "OK", RED_ACCENT, false);
+    }
+
+    private void showWarning(String title, String message) {
+        showStyledDialog(title, message, "OK", AMBER_ACCENT, false);
+    }
+
+    private boolean showStyledDialog(String title, String message, String confirmLabel,
+            Color stripColor, boolean showCancel) {
+        final boolean[] result = {false};
+
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(owner);
+        dialog.setModal(true);
+        dialog.setUndecorated(true);
+        dialog.setBackground(new Color(0, 0, 0, 0));
+
+        JPanel panel = new JPanel(new BorderLayout(16, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.setColor(DIALOG_BORDER_COLOR);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(22, 4, 20, 24));
+
+        JPanel accentStrip = new JPanel();
+        accentStrip.setBackground(stripColor);
+        accentStrip.setPreferredSize(new Dimension(4, 0));
+
+        JLabel titleLbl = new JLabel(title);
+        titleLbl.setFont(new Font("Inter", Font.BOLD, 16));
+        titleLbl.setForeground(ACCENT_COLOR);
+
+        String safeMessage = message.replace("&", "&amp;").replace("<", "&lt;");
+        JLabel messageLbl = new JLabel("<html><body style='width: 300px'>" + safeMessage + "</body></html>");
+        messageLbl.setFont(new Font("Inter", Font.PLAIN, 14));
+        messageLbl.setForeground(Color.DARK_GRAY);
+        messageLbl.setBorder(BorderFactory.createEmptyBorder(8, 0, 16, 0));
+
+        DialogButton confirmBtn = new DialogButton(confirmLabel, stripColor, Color.WHITE, null);
+        confirmBtn.addActionListener(e -> {
+            result[0] = true;
+            dialog.dispose();
+        });
+
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        btnRow.setOpaque(false);
+        if (showCancel) {
+            DialogButton cancelBtn = new DialogButton("Cancel", Color.WHITE, ACCENT_COLOR, DIALOG_BORDER_COLOR);
+            cancelBtn.addActionListener(e -> dialog.dispose());
+            btnRow.add(cancelBtn);
+        }
+        btnRow.add(confirmBtn);
+
+        JPanel textColumn = new JPanel();
+        textColumn.setOpaque(false);
+        textColumn.setLayout(new BoxLayout(textColumn, BoxLayout.Y_AXIS));
+        titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        messageLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        textColumn.add(titleLbl);
+        textColumn.add(messageLbl);
+        textColumn.add(btnRow);
+
+        panel.add(accentStrip, BorderLayout.WEST);
+        panel.add(textColumn, BorderLayout.CENTER);
+
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        return result[0];
     }
 
     private static String letterSpace(String text) {
@@ -429,6 +557,64 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
             }
             g2.dispose();
             super.paintComponent(g);
+        }
+    }
+
+    private static class DialogButton extends JButton {
+
+        private final Color outlineColor;
+        private boolean hovered = false;
+
+        DialogButton(String text, Color background, Color foreground, Color outlineColor) {
+            super(text);
+            this.outlineColor = outlineColor;
+            setBackground(background);
+            setForeground(foreground);
+            setFont(new Font("Inter", Font.BOLD, 13));
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    hovered = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    hovered = false;
+                    repaint();
+                }
+            });
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Color bg = getBackground();
+            Color fill = hovered
+                    ? (Color.WHITE.equals(bg) ? new Color(245, 247, 246) : bg.darker())
+                    : bg;
+            g2.setColor(fill);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+            if (outlineColor != null) {
+                g2.setColor(outlineColor);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+            }
+            g2.dispose();
+            super.paintComponent(g);
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension d = super.getPreferredSize();
+            return new Dimension(d.width + 24, Math.max(d.height, 40));
         }
     }
 

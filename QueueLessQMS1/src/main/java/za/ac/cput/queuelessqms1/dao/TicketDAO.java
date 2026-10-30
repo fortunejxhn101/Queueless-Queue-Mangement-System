@@ -21,8 +21,16 @@ public class TicketDAO {
                 + "issue_time TIME NOT NULL, "
                 + "FOREIGN KEY (identification_number) REFERENCES Patient(identification_number))";
 
-        try (Connection conn = QueueLessDBConnection.sqlConnection(); Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate(createTicketTable);
+        try (Connection conn = QueueLessDBConnection.sqlConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet tables = meta.getTables(null, null, "TICKET", null)) {
+                if (tables.next()) {
+                    return;
+                }
+            }
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate(createTicketTable);
+            }
         } catch (SQLException e) {
             System.out.println("Error creating Ticket table: " + e.getMessage());
         }
@@ -91,12 +99,11 @@ public class TicketDAO {
     }
 
     public static boolean updateStatus(String ticketNumber, String newStatus) {
-        String sql = "UPDATE Ticket SET queue_status = ? WHERE ticket_number = ?";
+        String sql = "UPDATE Ticket SET queue_status = ? WHERE ticket_number = ? AND issue_date = CURRENT_DATE";
         try (Connection conn = QueueLessDBConnection.sqlConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, newStatus);
             stmt.setString(2, ticketNumber);
-            stmt.executeUpdate();
-            return true;
+            return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("Error updating ticket status: " + e.getMessage());
             return false;

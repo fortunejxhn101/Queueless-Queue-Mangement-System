@@ -56,7 +56,7 @@ public class MainAppFrame extends JFrame {
     }
 
     public void navigateTo(String screenKey) {
-        
+
         if (SidebarPanel.BACK_TO_DASHBOARD.equals(screenKey)) {
             ScreenTransition.navigateTo(this, DashboardGUI::createConfigured);
             return;

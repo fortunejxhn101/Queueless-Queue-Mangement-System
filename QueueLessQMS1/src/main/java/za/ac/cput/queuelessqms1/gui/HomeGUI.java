@@ -15,6 +15,7 @@ public class HomeGUI extends JFrame {
     }
 
     private static final Color GREEN_ACCENT = new Color(103, 172, 118);
+    private static final Color ACCENT_COLOR = new Color(47, 62, 92);
 
     private static final int FADE_DURATION_MS = 1400;
     private static final int FADE_STEP_MS = 15;
@@ -74,7 +75,7 @@ public class HomeGUI extends JFrame {
 
         sloganLbl = new JLabel(letterSpace("Queue Less. Care More."));
         sloganLbl.setFont(new Font("Inter", Font.PLAIN, 15));
-        sloganLbl.setForeground(Color.BLACK);
+        sloganLbl.setForeground(ACCENT_COLOR);
         sloganLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         innerColumn.add(bigLogo);
@@ -205,17 +206,5 @@ public class HomeGUI extends JFrame {
 
             g2.dispose();
         }
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {
-            }
-            HomeGUI homeGUI = new HomeGUI();
-            homeGUI.setVisible(true);
-            homeGUI.fadeContentIn();
-        });
     }
 }

@@ -10,6 +10,10 @@ import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.time.LocalDate;
 import java.time.Month;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import za.ac.cput.queuelessqms1.domain.Department;
 import za.ac.cput.queuelessqms1.domain.Patient;
 import za.ac.cput.queuelessqms1.domain.CurrentPatient;
 import za.ac.cput.queuelessqms1.dao.*;
@@ -79,6 +83,7 @@ public class PatientRegistrationPanel extends JPanel {
 
         patientHeaderLbl = new JLabel("Patient Registration");
         patientHeaderLbl.setFont(new Font("Inter", Font.BOLD, 22));
+        patientHeaderLbl.setForeground(new Color(30, 36, 49));
 
         firstNameLbl = new JLabel("First Name: ");
         firstNameLbl.setFont(new Font("Inter", Font.BOLD, 16));
@@ -150,8 +155,7 @@ public class PatientRegistrationPanel extends JPanel {
         daycmBoBox = new JComboBox(days);
         daycmBoBox.setFont(new Font("Inter", Font.PLAIN, 12));
 
-        String[] dep = {"Select Department", "General", "Emergency", "Pediatrics", "Pharmacy", "Radiology", "Laboratory"};
-        departmentCmboBox = new JComboBox(dep);
+        departmentCmboBox = new JComboBox(loadDepartmentOptions());
         departmentCmboBox.setFont(new Font("Inter", Font.PLAIN, 12));
 
         String[] triageLvl = {"Select Triage", "P1 - Critical", "P2 - Urgent", "P3 - Routine", "Non - Urgent"};
@@ -349,7 +353,7 @@ public class PatientRegistrationPanel extends JPanel {
         lockIdNumberField();
         updateBtn.setEnabled(true);
 
-        String department = departmentCmboBox.getSelectedItem().toString();
+        String department = selectedDepartmentValue();
         String triageLevel = triageLevelCmboBox.getSelectedItem().toString();
         boolean departmentAndTriageProvided = !department.equals("Select Department")
                 && !triageLevel.equals("Select Triage");
@@ -371,8 +375,8 @@ public class PatientRegistrationPanel extends JPanel {
         String firstName = firstNameTxt.getText().trim();
         String lastName = lastNameTxt.getText().trim();
         String idNumber = idNumberTxt.getText().trim();
-        String phoneNumber = phoneNumberTxt.getText().trim().replaceAll("[\\s\\-()+]", "");
-        String department = departmentCmboBox.getSelectedItem().toString();
+        String phoneNumber = normalizePhoneNumber(phoneNumberTxt.getText());
+        String department = selectedDepartmentValue();
         String triageLevel = triageLevelCmboBox.getSelectedItem().toString();
 
         if (firstName.isEmpty() && lastName.isEmpty() && idNumber.isEmpty() && phoneNumber.isEmpty()
@@ -459,7 +463,11 @@ public class PatientRegistrationPanel extends JPanel {
         try {
             PatientDAO patient = new PatientDAO();
             Patient patientRecord = new Patient(idNumber, firstName, lastName, phoneNumber, birthDate, gender);
-            patient.updatePatientRecord(patientRecord);
+            if (!patient.updatePatientRecord(patientRecord)) {
+                showStyledMessageDialog("Update Failed",
+                        "The patient could not be updated in the database. Please try again.");
+                return;
+            }
 
             if (departmentAndTriageProvided) {
                 CurrentPatient.set(idNumber, department, triageLevel);
@@ -481,8 +489,8 @@ public class PatientRegistrationPanel extends JPanel {
         String firstName = firstNameTxt.getText().trim();
         String lastName = lastNameTxt.getText().trim();
         String idNumber = idNumberTxt.getText().trim();
-        String phoneNumber = phoneNumberTxt.getText().trim().replaceAll("[\\s\\-()+]", "");
-        String department = departmentCmboBox.getSelectedItem().toString();
+        String phoneNumber = normalizePhoneNumber(phoneNumberTxt.getText());
+        String department = selectedDepartmentValue();
         String triageLevel = triageLevelCmboBox.getSelectedItem().toString();
 
         if (firstName.isEmpty() && lastName.isEmpty() && idNumber.isEmpty() && phoneNumber.isEmpty()
@@ -562,6 +570,12 @@ public class PatientRegistrationPanel extends JPanel {
             return;
         }
 
+        if (departmentCmboBox.getItemCount() <= 1) {
+            showStyledMessageDialog("No Departments Available",
+                    "No departments have been set up yet. Please add one under Departments on the dashboard first.");
+            return;
+        }
+
         if (department.equals("Select Department") && triageLevel.equals("Select Triage")) {
             showStyledMessageDialog("Select a Department and Triage Level for a Patient");
             return;
@@ -577,7 +591,11 @@ public class PatientRegistrationPanel extends JPanel {
         try {
             PatientDAO patient = new PatientDAO();
             Patient patientRecord = new Patient(idNumber, firstName, lastName, phoneNumber, birthDate, gender);
-            patient.insertPatientRecord(patientRecord);
+            if (!patient.insertPatientRecord(patientRecord)) {
+                showStyledMessageDialog("Registration Failed",
+                        "The patient could not be saved to the database. Please try again.");
+                return;
+            }
 
             CurrentPatient.set(idNumber, department, triageLevel);
 
@@ -612,7 +630,7 @@ public class PatientRegistrationPanel extends JPanel {
         genderButtons.clearSelection();
         idNumberTxt.setText("");
         phoneNumberTxt.setText("");
-        departmentCmboBox.setSelectedItem("Select Department");
+        departmentCmboBox.setSelectedIndex(0);
         triageLevelCmboBox.setSelectedItem("Select Triage");
 
         unlockIdNumberField();
@@ -647,6 +665,57 @@ public class PatientRegistrationPanel extends JPanel {
             return "Please enter a valid identification number";
         }
         return null;
+    }
+
+    private String normalizePhoneNumber(String raw) {
+        String digits = raw == null ? "" : raw.trim().replaceAll("[\\s\\-().]", "");
+        if (digits.startsWith("+27")) {
+            digits = "0" + digits.substring(3);
+        } else if (digits.startsWith("0027")) {
+            digits = "0" + digits.substring(4);
+        } else if (digits.startsWith("27") && digits.length() == 11) {
+            digits = "0" + digits.substring(2);
+        }
+        return digits;
+    }
+
+    private static class DepartmentOption {
+
+        private final String code;
+        private final String name;
+
+        DepartmentOption(String code, String name) {
+            this.code = code;
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name + " (" + code + ")";
+        }
+    }
+
+    private Object[] loadDepartmentOptions() {
+        ArrayList<Object> items = new ArrayList<>();
+        items.add("Select Department");
+        try {
+            List<Department> all = new DepartmentDAO().getAllDepartments();
+            all.sort(Comparator.comparing(Department::getDepartmentName, String.CASE_INSENSITIVE_ORDER));
+            for (Department d : all) {
+                items.add(new DepartmentOption(d.getDepartmentCode(), d.getDepartmentName()));
+            }
+        } catch (Exception ex) {
+            System.out.println("Could not load departments: " + ex.getMessage());
+        }
+        return items.toArray();
+    }
+
+    private String selectedDepartmentValue() {
+        Object selected = departmentCmboBox.getSelectedItem();
+        if (selected instanceof DepartmentOption) {
+            return ((DepartmentOption) selected).code;
+        }
+        return "Select Department";
     }
 
     private String validatePhoneNumber(String value) {

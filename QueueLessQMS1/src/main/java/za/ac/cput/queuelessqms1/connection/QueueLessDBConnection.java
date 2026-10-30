@@ -6,7 +6,7 @@ import java.sql.*;
  *
  * @author admin Fortune
  */
-public class QueueLessDBConnection {
+public class QueueLessDBConnection { //The ONE on GITHUB. 
 
     public static Connection sqlConnection() throws SQLException {
 

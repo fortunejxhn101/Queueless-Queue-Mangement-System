@@ -18,10 +18,12 @@ import za.ac.cput.queuelessqms1.dao.TicketDAO;
  */
 public class VisitScreenPanel extends JPanel {
 
+    private static final Color HEADING_COLOR = new Color(30, 36, 49);
     private static final Color ACCENT_COLOR = new Color(47, 62, 92);
     private static final Color GREEN_ACCENT = new Color(103, 172, 118);
     private static final Color BORDER_COLOR = new Color(200, 200, 200);
     private static final Color MUTED_GRAY = new Color(140, 145, 155);
+    private static final Color SUBTITLE_COLOR = new Color(107, 114, 128);
     private static final Color TABLE_HEADER_COLOR = new Color(148, 156, 168);
 
     private static final int INPUT_CORNER_RADIUS = 8;
@@ -29,6 +31,8 @@ public class VisitScreenPanel extends JPanel {
     private static final int FIELD_WIDTH = 500;
     private static final int FIELD_HEIGHT = 36;
     private static final int LEFT_MARGIN = 24;
+    public static final int CONTENT_WIDTH = 960;
+    public static final int SCROLLBAR_WIDTH = new JScrollBar(JScrollBar.VERTICAL).getPreferredSize().width;
 
     private static final Border INPUT_BORDER_NORMAL = new RoundedBorder(BORDER_COLOR, INPUT_CORNER_RADIUS);
     private static final Border INPUT_BORDER_FOCUSED = new RoundedBorder(GREEN_ACCENT, INPUT_CORNER_RADIUS);
@@ -56,23 +60,75 @@ public class VisitScreenPanel extends JPanel {
     public VisitScreenPanel() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
-        setBorder(BorderFactory.createEmptyBorder(0, LEFT_MARGIN, LEFT_MARGIN, LEFT_MARGIN));
+        setBorder(BorderFactory.createEmptyBorder(0, LEFT_MARGIN + SCROLLBAR_WIDTH, LEFT_MARGIN, LEFT_MARGIN));
 
-        JPanel content = new JPanel();
+        JPanel content = new JPanel() {
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(CONTENT_WIDTH, super.getPreferredSize().height);
+            }
+        };
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(Color.WHITE);
 
+        content.add(buildHeading());
+        content.add(Box.createRigidArea(new Dimension(0, 28)));
         content.add(buildFormCard());
         content.add(Box.createRigidArea(new Dimension(0, 24)));
         content.add(buildTableCard());
 
-        JScrollPane scrollPane = new JScrollPane(content);
+        JPanel contentHolder = new JPanel(new BorderLayout());
+        contentHolder.setBackground(Color.WHITE);
+        contentHolder.add(content, BorderLayout.WEST);
+
+        JScrollPane scrollPane = new JScrollPane(contentHolder);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.setBackground(Color.WHITE);
         scrollPane.getViewport().setBackground(Color.WHITE);
 
         add(scrollPane, BorderLayout.CENTER);
+    }
+
+    private JPanel buildHeading() {
+        JPanel heading = new JPanel();
+        heading.setOpaque(false);
+        heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel eyebrowLbl = new JLabel(letterSpace("Visit Records"));
+        eyebrowLbl.setFont(new Font("Inter", Font.BOLD, 13));
+        eyebrowLbl.setForeground(GREEN_ACCENT);
+        eyebrowLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel headingLbl = new JLabel("Visit Management");
+        headingLbl.setFont(new Font("Inter", Font.BOLD, 30));
+        headingLbl.setForeground(HEADING_COLOR);
+        headingLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel subLbl = new JLabel("Search a patient by ID number, review their tickets and record visit notes.");
+        subLbl.setFont(new Font("Inter", Font.PLAIN, 14));
+        subLbl.setForeground(SUBTITLE_COLOR);
+        subLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        heading.add(eyebrowLbl);
+        heading.add(Box.createRigidArea(new Dimension(0, 8)));
+        heading.add(headingLbl);
+        heading.add(Box.createRigidArea(new Dimension(0, 6)));
+        heading.add(subLbl);
+        return heading;
+    }
+
+    private static String letterSpace(String text) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            sb.append(Character.toUpperCase(c));
+            if (c != ' ') {
+                sb.append(' ');
+            }
+        }
+        return sb.toString().trim();
     }
 
     private JPanel buildFormCard() {
@@ -82,7 +138,7 @@ public class VisitScreenPanel extends JPanel {
 
         JLabel titleLbl = new JLabel("Visit Details");
         titleLbl.setFont(new Font("Inter", Font.BOLD, 18));
-        titleLbl.setForeground(Color.BLACK);
+        titleLbl.setForeground(ACCENT_COLOR);
         titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel formGrid = new JPanel(new GridBagLayout());
@@ -240,12 +296,12 @@ public class VisitScreenPanel extends JPanel {
 
         searchContextLbl = new JLabel(" ");
         searchContextLbl.setFont(new Font("Inter", Font.BOLD, 12));
-        searchContextLbl.setForeground(GREEN_ACCENT);
+        searchContextLbl.setForeground(new Color(176, 220, 188));
         searchContextLbl.setBorder(BorderFactory.createEmptyBorder(14, 20, 0, 20));
+        searchContextLbl.setVisible(false);
 
-        JPanel headerColumn = new JPanel();
+        JPanel headerColumn = new TableHeaderBand();
         headerColumn.setLayout(new BoxLayout(headerColumn, BoxLayout.Y_AXIS));
-        headerColumn.setBackground(new Color(250, 250, 251));
         headerColumn.add(searchContextLbl);
         headerColumn.add(buildTableHeaderRow());
 
@@ -257,17 +313,23 @@ public class VisitScreenPanel extends JPanel {
 
     private JPanel buildTableHeaderRow() {
         JPanel header = new JPanel(new GridLayout(1, 5));
-        header.setBackground(new Color(250, 250, 251));
+        header.setOpaque(false);
         header.setBorder(BorderFactory.createEmptyBorder(14, 20, 14, 20));
 
         for (String label : new String[]{"TICKET NUMBER", "DEPARTMENT", "STATUS", "DATE", "TIME"}) {
             JLabel lbl = new JLabel(label);
             lbl.setFont(new Font("Inter", Font.BOLD, 12));
-            lbl.setForeground(TABLE_HEADER_COLOR);
+            lbl.setForeground(Color.WHITE);
             header.add(lbl);
         }
 
         return header;
+    }
+
+    private void setSearchContext(String text) {
+        boolean hasText = text != null && !text.isEmpty();
+        searchContextLbl.setText(hasText ? text : " ");
+        searchContextLbl.setVisible(hasText);
     }
 
     private void handleSearch(ActionEvent e) {
@@ -283,7 +345,7 @@ public class VisitScreenPanel extends JPanel {
 
         if (searchResults.isEmpty()) {
             tableCardLayout.show(tableCardHost, "EMPTY");
-            searchContextLbl.setText(" ");
+            setSearchContext("");
             showStyledMessageDialog("No Tickets Found", "No tickets exist for this identification number.");
             return;
         }
@@ -293,7 +355,7 @@ public class VisitScreenPanel extends JPanel {
                 t.getTicketNumber(), t.getDepartment(), t.getQueueStatus(), t.getIssueDate(), t.getIssueTime()
             });
         }
-        searchContextLbl.setText("Showing tickets for: " + idNumber);
+        setSearchContext("Showing tickets for: " + idNumber);
         tableCardLayout.show(tableCardHost, "TABLE");
     }
 
@@ -321,7 +383,7 @@ public class VisitScreenPanel extends JPanel {
         visitTimeTxt.setText(LocalTime.now().format(TIME_FORMAT));
         searchResults.clear();
         tableModel.setRowCount(0);
-        searchContextLbl.setText(" ");
+        setSearchContext("");
         tableCardLayout.show(tableCardHost, "EMPTY");
     }
 
