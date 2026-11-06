@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
+ *
  * @author admin Fortune
  */
 public class Visit {
@@ -22,11 +23,8 @@ public class Visit {
     }
 
     public Visit(int visitId, int ticketId, LocalDate visitDate, LocalTime visitTime, String notes) {
+        this(ticketId, visitDate, visitTime, notes);
         this.visitId = visitId;
-        this.ticketId = ticketId;
-        this.visitDate = visitDate;
-        this.visitTime = visitTime;
-        this.notes = notes;
     }
 
     public int getVisitId() {
@@ -47,5 +45,11 @@ public class Visit {
 
     public String getNotes() {
         return notes;
+    }
+
+    @Override
+    public String toString() {
+        return "Visit{visitId=" + visitId + ", ticketId=" + ticketId
+                + ", visitDate=" + visitDate + ", visitTime=" + visitTime + ", notes=" + notes + '}';
     }
 }

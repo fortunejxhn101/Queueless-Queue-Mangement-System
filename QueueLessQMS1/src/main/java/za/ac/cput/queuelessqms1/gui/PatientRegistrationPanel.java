@@ -136,21 +136,23 @@ public class PatientRegistrationPanel extends JPanel {
         female.setFont(new Font("Inter", Font.BOLD, 13));
         styleRadioButton(female);
 
-        String[] years = new String[80];
-        int startYear = 2026;
-        for (int i = 0; i < 80; i++) {
-            years[i] = String.valueOf(startYear - i);
+        String[] years = new String[111];
+        int startYear = LocalDate.now().getYear();
+        years[0] = "Year";
+        for (int i = 1; i < years.length; i++) {
+            years[i] = String.valueOf(startYear - (i - 1));
         }
         yearcmBoBox = new JComboBox(years);
         yearcmBoBox.setFont(new Font("Inter", Font.PLAIN, 12));
 
-        String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        String[] months = {"Month", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
         monthcmBoBox = new JComboBox(months);
         monthcmBoBox.setFont(new Font("Inter", Font.PLAIN, 12));
 
-        String[] days = new String[31];
-        for (int i = 0; i < 31; i++) {
-            days[i] = String.valueOf(i + 1);
+        String[] days = new String[32];
+        days[0] = "Day";
+        for (int i = 1; i < days.length; i++) {
+            days[i] = String.valueOf(i);
         }
         daycmBoBox = new JComboBox(days);
         daycmBoBox.setFont(new Font("Inter", Font.PLAIN, 12));
@@ -362,7 +364,7 @@ public class PatientRegistrationPanel extends JPanel {
             CurrentPatient.set(idNumber, department, triageLevel);
             showStyledMessageDialog("Patient Found",
                     "Loaded the existing record for " + found.getFirstName() + " " + found.getLastName()
-                    + ". Patient Updated Successfully. You can now generate their ticket.");
+                    + ". They are ready for a ticket. You can generate it now, or edit their details and click Update Patient.");
         } else {
             showStyledMessageDialog("Patient Found",
                     "Loaded the existing record for " + found.getFirstName() + " " + found.getLastName()
@@ -624,9 +626,9 @@ public class PatientRegistrationPanel extends JPanel {
     private void clearForm() {
         firstNameTxt.setText("");
         lastNameTxt.setText("");
-        yearcmBoBox.setSelectedItem("2026");
-        monthcmBoBox.setSelectedItem("January");
-        daycmBoBox.setSelectedItem("1");
+        yearcmBoBox.setSelectedIndex(0);
+        monthcmBoBox.setSelectedIndex(0);
+        daycmBoBox.setSelectedIndex(0);
         genderButtons.clearSelection();
         idNumberTxt.setText("");
         phoneNumberTxt.setText("");

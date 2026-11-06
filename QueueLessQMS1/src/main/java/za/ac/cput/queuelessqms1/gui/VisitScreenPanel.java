@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import za.ac.cput.queuelessqms1.domain.Ticket;
 import za.ac.cput.queuelessqms1.domain.Visit;
 import za.ac.cput.queuelessqms1.dao.TicketDAO;
+import za.ac.cput.queuelessqms1.dao.VisitDAO;
 
 /**
  * @author admin
@@ -56,6 +57,7 @@ public class VisitScreenPanel extends JPanel {
     private JLabel searchContextLbl;
 
     private ArrayList<Ticket> searchResults = new ArrayList<>();
+    private final VisitDAO visitDao = new VisitDAO();
 
     public VisitScreenPanel() {
         setLayout(new BorderLayout());
@@ -369,11 +371,42 @@ public class VisitScreenPanel extends JPanel {
         }
 
         Ticket selectedTicket = searchResults.get(selectedRow);
+        String ticketStatus = selectedTicket.getQueueStatus();
+        if (!"Completed".equals(ticketStatus) && !"Called".equals(ticketStatus)) {
+            showStyledMessageDialog("Ticket Not Seen",
+                    "Visit notes can only be added to tickets where the patient was seen "
+                    + "(Called or Completed). Ticket " + selectedTicket.getTicketNumber()
+                    + " is " + ticketStatus + ".");
+            return;
+        }
+
         String notes = notesTxt.getText().trim();
 
-        showStyledMessageDialog("Not Yet Available",
-                "Saving visit notes isn't available in this build yet - the Visit table and its DAO "
-                + "haven't been added to the project.");
+        if (notes.isEmpty()) {
+            showStyledMessageDialog("Missing Information", "Please enter the visit notes before saving.");
+            return;
+        }
+
+        if (notes.length() > 500) {
+            showStyledMessageDialog("Notes Too Long",
+                    "Visit notes can be at most 500 characters. Currently " + notes.length() + ".");
+            return;
+        }
+
+        Visit visit = new Visit(selectedTicket.getTicketId(), LocalDate.now(), LocalTime.now().withNano(0), notes);
+        int visitId = visitDao.insertVisitRecord(visit);
+
+        if (visitId == -1) {
+            String reason = VisitDAO.getLastError();
+            showStyledMessageDialog("Visit Not Saved",
+                    "The visit could not be saved to the database. Please try again."
+                    + (reason == null || reason.isEmpty() ? "" : " (" + reason + ")"));
+            return;
+        }
+
+        notesTxt.setText("");
+        showStyledMessageDialog("Visit Saved",
+                "The visit note for ticket " + selectedTicket.getTicketNumber() + " has been saved.");
     }
 
     private void clearForm() {

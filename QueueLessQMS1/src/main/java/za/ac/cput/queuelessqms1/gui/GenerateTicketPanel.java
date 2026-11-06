@@ -6,6 +6,7 @@ import java.awt.event.*;
 import za.ac.cput.queuelessqms1.domain.Ticket;
 import za.ac.cput.queuelessqms1.domain.TicketQueue;
 import za.ac.cput.queuelessqms1.domain.CurrentPatient;
+import za.ac.cput.queuelessqms1.dao.TicketDAO;
 
 /**
  * @author Tyawana M
@@ -86,6 +87,17 @@ public class GenerateTicketPanel extends JPanel {
             showStyledMessageDialog("Department Not Found",
                     "No department is set for this patient. Please go back to Patient Registration, "
                     + "select a department, and try again.", redAccent);
+            return;
+        }
+
+        Ticket activeTicket = TicketDAO.findActiveTicketByIdentificationNumber(
+                CurrentPatient.getIdentificationNumber());
+        if (activeTicket != null) {
+            showStyledMessageDialog("Active Ticket Exists",
+                    "This patient already has an active ticket (" + activeTicket.getTicketNumber()
+                    + ", " + activeTicket.getQueueStatus() + "). A new ticket can be generated once "
+                    + "that one is completed, skipped or cleared.", redAccent);
+            CurrentPatient.clear();
             return;
         }
 

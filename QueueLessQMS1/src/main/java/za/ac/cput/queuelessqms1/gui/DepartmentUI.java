@@ -1,6 +1,7 @@
 package za.ac.cput.queuelessqms1.gui;
 
 import za.ac.cput.queuelessqms1.dao.DepartmentDAO;
+import za.ac.cput.queuelessqms1.dao.TicketDAO;
 import za.ac.cput.queuelessqms1.domain.Department;
 
 import javax.swing.*;
@@ -17,13 +18,8 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
 
 /**
- * Department Management screen. Same functionality as before (add / search /
- * update / delete / show all), restyled to match the rest of QueueLess:
- * white background, letter-spaced green eyebrow, rounded bordered cards,
- * rounded inputs with a green focus border, and the app's navy / green / red
- * button colours.
  *
- * @author yantolo (logic) / restyled to match the QueueLess design system
+ * @author yantolo 
  */
 public class DepartmentUI extends JFrame {
 
@@ -408,6 +404,16 @@ public class DepartmentUI extends JFrame {
             }
             if (dao.getDepartment(code) == null) {
                 showMessage("Not Found", "No department found with code: " + code, false);
+                return;
+            }
+            int activeTickets = TicketDAO.countActiveTicketsByDepartment(code);
+            if (activeTickets < 0) {
+                showMessage("Delete Unavailable", "Could not check whether this department is in use. Please try again.", false);
+                return;
+            }
+            if (activeTickets > 0) {
+                showMessage("Department In Use", "Department " + code + " still has " + activeTickets
+                        + " active ticket(s) in the queue. Complete or clear them before deleting it.", false);
                 return;
             }
             boolean confirmed = showStyledDialog("Confirm Delete",

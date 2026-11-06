@@ -1,6 +1,7 @@
 package za.ac.cput.queuelessqms1.domain;
 import za.ac.cput.queuelessqms1.dao.TicketDAO;
 import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.swing.Timer;
@@ -13,7 +14,7 @@ import za.ac.cput.queuelessqms1.domain.Ticket;
  */
 public class TicketQueue {
     private static ArrayList<Ticket> allTickets = new ArrayList<>();
-    private static ArrayList<QueueUpdateListener> listeners = new ArrayList<>();
+    private static final CopyOnWriteArrayList<QueueUpdateListener> listeners = new CopyOnWriteArrayList<>();
     private static int ticketIdCounter = 0;
     private static final String PREFIX = "A";
     private static String lastKnownDate = null;
@@ -21,11 +22,18 @@ public class TicketQueue {
     private static final int ROLLOVER_CHECK_INTERVAL_MS = 60000;
 
     public static void addListener(QueueUpdateListener listener) {
-        listeners.add(listener);
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
     }
+
+    public static void removeListener(QueueUpdateListener listener) {
+        listeners.remove(listener);
+    }
+
     private static void notifyListeners() {
-        for (int i = 0; i < listeners.size(); i++) {
-            listeners.get(i).onQueueUpdated();
+        for (QueueUpdateListener listener : listeners) {
+            listener.onQueueUpdated();
         }
     }
     public static synchronized Ticket generateTicket(String department, String triageLevel, String identificationNumber) {
@@ -89,7 +97,9 @@ public class TicketQueue {
             }
         }
 
-        TicketDAO.clearAllActiveTickets();
+        if (TicketDAO.clearAllActiveTickets() == -1) {
+            return null;
+        }
         loadFromDatabase();
         return affected;
     }

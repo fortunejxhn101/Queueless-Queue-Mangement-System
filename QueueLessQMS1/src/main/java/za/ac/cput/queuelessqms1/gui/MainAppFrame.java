@@ -1,5 +1,6 @@
 package za.ac.cput.queuelessqms1.gui;
 
+import za.ac.cput.queuelessqms1.domain.TicketQueue;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
@@ -53,6 +54,17 @@ public class MainAppFrame extends JFrame {
         add(contentHost, BorderLayout.CENTER);
 
         SwingUtilities.invokeLater(() -> navigateTo(SidebarPanel.PATIENT_REGISTRATION));
+    }
+
+    @Override
+    public void dispose() {
+        if (displayScreenPanel != null) {
+            TicketQueue.removeListener(displayScreenPanel);
+        }
+        if (staffDashboardPanel != null) {
+            TicketQueue.removeListener(staffDashboardPanel);
+        }
+        super.dispose();
     }
 
     public void navigateTo(String screenKey) {

@@ -98,6 +98,23 @@ public class TicketDAO {
         }
     }
 
+    public static int countActiveTicketsByDepartment(String departmentCode) {
+        String sql = "SELECT COUNT(*) FROM Ticket WHERE department_code = ? "
+                + "AND queue_status IN ('Waiting', 'Called', 'Held')";
+        try (Connection conn = QueueLessDBConnection.sqlConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, departmentCode);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error counting active tickets for department: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
     public static boolean updateStatus(String ticketNumber, String newStatus) {
         String sql = "UPDATE Ticket SET queue_status = ? WHERE ticket_number = ? AND issue_date = CURRENT_DATE";
         try (Connection conn = QueueLessDBConnection.sqlConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {

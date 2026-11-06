@@ -172,7 +172,7 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
         eyebrowLbl.setForeground(MUTED_GRAY);
         eyebrowLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         buttonRow.setOpaque(false);
         buttonRow.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -200,7 +200,7 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
         divider.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         divider.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JPanel holdRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
+        JPanel holdRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         holdRow.setOpaque(false);
         holdRow.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -244,7 +244,21 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
         return card;
     }
 
+    private boolean rejectIfTicketInProgress() {
+        Ticket inProgress = findFirstByStatus(TicketQueue.getNowServing(), null);
+        if (inProgress == null) {
+            return false;
+        }
+        showMessage("Ticket In Progress",
+                "Ticket " + inProgress.getTicketNumber() + " is still being served. "
+                + "Complete, hold or skip it before calling another ticket.");
+        return true;
+    }
+
     private void handleCallNext(ActionEvent e) {
+        if (rejectIfTicketInProgress()) {
+            return;
+        }
         Ticket next = findOldestByStatus("Waiting");
         if (next == null) {
             showMessage("No Tickets Waiting", "There are no waiting tickets to call.");
@@ -300,6 +314,9 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     }
 
     private void handleReleaseHold(ActionEvent e) {
+        if (rejectIfTicketInProgress()) {
+            return;
+        }
         Ticket oldestHeld = findOldestByStatus("Held");
         if (oldestHeld == null) {
             showMessage("No Held Tickets", "There are no held tickets to release.");
@@ -325,6 +342,13 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
         }
 
         ArrayList<Ticket> affectedTickets = TicketQueue.clearActiveQueue();
+
+        if (affectedTickets == null) {
+            showError("Queue Not Cleared",
+                    "The queue could not be cleared because of a database problem. Please try again.");
+            refresh();
+            return;
+        }
 
         boolean allLogged = true;
         for (Ticket t : affectedTickets) {
@@ -621,19 +645,23 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
     private static class ControlButton extends JButton {
 
         private final Color baseColor;
+        private static final int MIN_WIDTH = 160;
+        private static final int MIN_HEIGHT = 56;
+
         private boolean hovered = false;
+        private boolean pressed = false;
 
         ControlButton(String text, Color baseColor) {
             super(text);
             this.baseColor = baseColor;
-            setFont(new Font("Inter", Font.BOLD, 14));
+            setFont(new Font("Inter", Font.BOLD, 16));
             setForeground(Color.WHITE);
             setContentAreaFilled(false);
             setBorderPainted(false);
             setFocusPainted(false);
             setOpaque(false);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setBorder(BorderFactory.createEmptyBorder(12, 22, 12, 22));
+            setBorder(BorderFactory.createEmptyBorder(16, 32, 16, 32));
 
             addMouseListener(new MouseAdapter() {
                 @Override
@@ -645,17 +673,42 @@ public class StaffDashBoardPanel extends JPanel implements QueueUpdateListener {
                 @Override
                 public void mouseExited(MouseEvent e) {
                     hovered = false;
+                    pressed = false;
+                    repaint();
+                }
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    pressed = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    pressed = false;
                     repaint();
                 }
             });
         }
 
         @Override
+        public Dimension getPreferredSize() {
+            Dimension d = super.getPreferredSize();
+            return new Dimension(Math.max(d.width, MIN_WIDTH), Math.max(d.height, MIN_HEIGHT));
+        }
+
+        @Override
+        public Dimension getMinimumSize() {
+            return getPreferredSize();
+        }
+
+        @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(hovered ? baseColor.darker() : baseColor);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+            Color fill = pressed ? baseColor.darker().darker() : hovered ? baseColor.darker() : baseColor;
+            g2.setColor(fill);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
             g2.dispose();
             super.paintComponent(g);
         }

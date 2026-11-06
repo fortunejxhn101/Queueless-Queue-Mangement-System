@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import za.ac.cput.queuelessqms1.domain.CurrentPatient;
 import za.ac.cput.queuelessqms1.domain.CurrentSession;
 import za.ac.cput.queuelessqms1.domain.Staff;
 
@@ -68,6 +69,7 @@ public class AccountBar extends JPanel {
             logoutBtn.addActionListener(e -> {
                 Window window = SwingUtilities.getWindowAncestor(this);
                 if (window instanceof JFrame) {
+                    CurrentPatient.clear();
                     CurrentSession.clear();
                     ScreenTransition.navigateTo((JFrame) window, StaffLoginGUI::new);
                 }

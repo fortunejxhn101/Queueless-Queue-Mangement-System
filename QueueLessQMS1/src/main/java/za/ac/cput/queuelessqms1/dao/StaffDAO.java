@@ -6,7 +6,7 @@ import za.ac.cput.queuelessqms1.domain.*;
 
 /**
  *
- * @author admin Fortune
+ * @author admin Fortune 
  */
 public class StaffDAO {
 

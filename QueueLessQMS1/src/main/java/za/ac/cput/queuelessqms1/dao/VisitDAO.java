@@ -11,6 +11,14 @@ import za.ac.cput.queuelessqms1.domain.Visit;
  */
 public class VisitDAO {
 
+    private static String lastError = "";
+
+    public static String getLastError() {
+        return lastError;
+    }
+
+    private static final String[] REQUIRED_COLUMNS = {"VISIT_ID", "TICKET_ID", "VISIT_DATE", "VISIT_TIME", "NOTES"};
+
     public VisitDAO() {
         String createTableStmt = "CREATE TABLE Visit("
                 + "visit_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
@@ -25,6 +33,7 @@ public class VisitDAO {
             DatabaseMetaData meta = con.getMetaData();
             try (ResultSet tables = meta.getTables(null, null, "VISIT", null)) {
                 if (tables.next()) {
+                    checkTableStructure(meta);
                     return;
                 }
             }
@@ -34,6 +43,23 @@ public class VisitDAO {
             }
         } catch (SQLException sql) {
             System.out.println(sql.getMessage());
+        }
+    }
+
+    private void checkTableStructure(DatabaseMetaData meta) throws SQLException {
+        java.util.Set<String> found = new java.util.HashSet<>();
+        try (ResultSet cols = meta.getColumns(null, null, "VISIT", null)) {
+            while (cols.next()) {
+                found.add(cols.getString("COLUMN_NAME").toUpperCase());
+            }
+        }
+        for (String required : REQUIRED_COLUMNS) {
+            if (!found.contains(required)) {
+                lastError = "The Visit table in the database has an old structure (missing column "
+                        + required + "). Drop the Visit table and restart so it is created again.";
+                System.out.println(lastError);
+                return;
+            }
         }
     }
 
@@ -51,6 +77,7 @@ public class VisitDAO {
                 pstmt.setString(4, visit.getNotes());
             }
             pstmt.executeUpdate();
+            lastError = "";
 
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 if (keys.next()) {
@@ -59,7 +86,8 @@ public class VisitDAO {
             }
             return -1;
         } catch (SQLException sql) {
-            System.out.println(sql.getMessage());
+            lastError = sql.getMessage();
+            System.out.println("Error saving visit: " + sql.getMessage());
             return -1;
         }
     }
