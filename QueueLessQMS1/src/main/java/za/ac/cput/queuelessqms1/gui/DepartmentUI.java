@@ -775,14 +775,4 @@ public class DepartmentUI extends JFrame {
             return new Dimension(d.width + 24, Math.max(d.height, 40));
         }
     }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {
-            }
-            new DepartmentUI();
-        });
-    }
 }

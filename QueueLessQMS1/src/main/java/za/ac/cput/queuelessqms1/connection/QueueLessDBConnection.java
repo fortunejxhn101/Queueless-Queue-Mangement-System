@@ -10,9 +10,9 @@ public class QueueLessDBConnection { //The ONE on GITHUB.
 
     public static Connection sqlConnection() throws SQLException {
 
-        String dbUrl = "jdbc:derby://localhost:1527/QueueLess";
-        String username = "QueueLess";
-        String password = "12345678";
+        String dbUrl = "";
+        String username = "";
+        String password = "";
         Connection con = DriverManager.getConnection(dbUrl, username, password);
         return con;
     }
